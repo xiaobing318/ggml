@@ -347,6 +347,14 @@ option(GGML_CCACHE "ggml: use ccache if available"       ON)
 
 # debug
 #[[
+```cmake
+option(<variable> "<description>" [initial_value])
+```
+- `<variable>`: 这是将被定义或修改的变量的名称。
+- `<description>`: 这是对变量的描述，通常在图形界面中显示，帮助用户了解这个变量的用途。
+- `[initial_value]`: 这是变量的初始值，通常是 `ON` 或 `OFF`。如果用户在命令行或者通过CMake图形界面未指定这个变量，它就会使用此初始值。
+
+
     这部分 CMake 脚本中的命令定义了与调试和代码质量保障相关的几个可配置选项。这些选项允许开发者在构建项目时启用特定的编译器警告和性能分析工具。
 下面是对这些选项的逐行解释：
 
