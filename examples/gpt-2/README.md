@@ -2,11 +2,22 @@
 
 This is a C++ example running GPT-2 inference using the [ggml](https://github.com/ggerganov/ggml) library.
 
+ - 这是一个使用ggml库运行GPT-2推理的C++例子
+ - 这个例子中使用了ggml库
+ - 这个例子中用C++来运行GPT-2的推理
+
 The program runs on the CPU - no video card is required.
+
+ - 这个程序运行在CPU上，不需要使用显卡
 
 The [Cerebras-GPT](https://huggingface.co/cerebras) models are also supported.
 
+ - Cerebras-GPT模型也是可以被支持的
+ - 使用这个程序例子可以直接运行Cerebras-GPT模型
+
 The example supports the following GPT-2 models:
+
+ - 这个示例支持下列的GPT-2 models
 
 | Model | Description  | Disk Size |
 | ---   | ---          | ---       |
@@ -15,7 +26,7 @@ The example supports the following GPT-2 models:
 | 774M  | Large model  | 1.5 GB    |
 | 1558M | XL model     | 3.0 GB    |
 
-Sample performance on MacBook M1 Pro:
+Sample performance on MacBook M1 Pro（MacBook M1 Pro 上的样本性能）:
 
 | Model | Size  | Time / Token |
 | ---   | ---   | ---    |
@@ -74,13 +85,21 @@ main:  predict time =   506.40 ms / 5.06 ms per token
 main:    total time =   629.84 ms
 ```
 
-## Downloading and converting the original models (GPT-2)
+## Downloading and converting the original models (GPT-2)（下载和对original models进行转化）
 
 You can download the original model files using the [download-model.sh](download-model.sh) Bash script. The models are
 in Tensorflow format, so in order to use them with ggml, you need to convert them to appropriate format. This is done
 via the [convert-ckpt-to-ggml.py](convert-ckpt-to-ggml.py) python script.
 
+ - 可以使用download-model.sh脚本文件来下载original model files
+ - 经过download-model.sh脚本文件下载下来的original model files是tensorflow format
+ - 为了用ggml调用这些tensorflow format格式的文件，那么需要将这些tensorflow format格式的文件转化为合适的format
+ - 可以使用convert-ckpt-to-ggml.py脚本文件来进行转化
+
 Here is the entire process for the GPT-2 117M model (download from official site + conversion):
+
+ - 1、从官方网站下载GPT-2 117M model
+ - 2、将下载下来的GPT-2 117M model转化格式
 
 ```bash
 cd ggml/build
@@ -105,6 +124,10 @@ Run the convert-ckpt-to-ggml.py script to convert the model to ggml format.
 This conversion requires that you have python and Tensorflow installed on your computer. Still, if you want to avoid
 this, you can download the already converted ggml models as described below.
 
+ - 使用convert-ckpt-to-ggml.py对model files进行转化
+ - 在本地环境中需要由python和tensorflow
+ - 如果不想进行转化步骤，那么直接下载使用已经转化号的ggml models
+
 ## Downloading and converting the original models (Cerebras-GPT)
 
 Clone the respective repository from here: https://huggingface.co/cerebras
@@ -123,6 +146,9 @@ python ../examples/gpt-2/convert-cerebras-to-ggml.py models/Cerebras-GPT-111M/
 For convenience, I will be hosting the converted ggml model files in order to make it easier to run the examples. This
 way, you can directly download a single binary file and start using it. No python or Tensorflow is required.
 
+ - 为了方便这里使用已经经过转化的ggml model file
+ - 可以直接下载对应的文件并且进行使用
+
 Here is how to get the 117M ggml model:
 
 ```bash
@@ -140,10 +166,10 @@ You can now use it like this:
 
 At some point, I might decide to stop hosting these models. So in that case, simply revert to the manual process above.
 
-## Quantizing the models
+## Quantizing the models（量化models）
 
-You can also try to quantize the `ggml` models via 4-bit integer quantization.
-Keep in mind that for smaller models, this will render them completely useless.
+You can also try to quantize the `ggml` models via 4-bit integer quantization.（可以通过4-bit整数量化的方式进行量化）
+Keep in mind that for smaller models, this will render them completely useless.（对于小模型而言，完全是没有必要的，一般来说你想要量化更大的模型）
 You generally want to quantize larger models.
 
 ```bash
@@ -157,9 +183,9 @@ You generally want to quantize larger models.
 
 ```
 
-## Batched generation example
+## Batched generation example（批量生成示例）
 
-You can try the batched generation from a given prompt using the gpt-2-batched binary.
+You can try the batched generation from a given prompt using the gpt-2-batched binary.（你可以使用 gpt-2-batched 二进制文件尝试根据给定的提示进行批量生成。）
 
 Sample output:
 
