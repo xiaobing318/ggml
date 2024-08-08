@@ -1,8 +1,11 @@
 This example shows how to implement YOLO object detection with ggml using pretrained model.
 
+ - 这个例子展示如何使用预训练模型实现YOLO 目标检测
+ - 预训练模型使用ggml进行推理
+
 # YOLOv3-tiny
 
-Download the model weights:
+Download the model weights（下载模型权重）:
 
 ```bash
 $ wget https://pjreddie.com/media/files/yolov3-tiny.weights
@@ -10,14 +13,14 @@ $ sha1sum yolov3-tiny.weights
 40f3c11883bef62fd850213bc14266632ed4414f  yolov3-tiny.weights
 ```
 
-Convert the weights to GGUF format:
+Convert the weights to GGUF format（将模型权重转化为GGUF格式）:
 
 ```bash
 $ ./convert-yolov3-tiny.py yolov3-tiny.weights
 yolov3-tiny.weights converted to yolov3-tiny.gguf
 ```
 
-Object detection:
+Object detection（目标检测）:
 
 ```bash
 $ wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg
