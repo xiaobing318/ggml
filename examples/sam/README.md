@@ -2,25 +2,33 @@
 
 Inference of Meta's [Segment Anything Model](https://github.com/facebookresearch/segment-anything/) in pure C/C++
 
-## Description
+ - 使用纯C/C++对meta的segment anything model进行推理
+
+## Description（描述）
 
 The example currently supports only the [ViT-B SAM model checkpoint](https://huggingface.co/facebook/sam-vit-base).
 
-## Next steps
+ - 这个例子目前仅支持ViT-B SAM model checkpoint
+ - 其他类型的model现在还不支持
 
-- [X] Reduce memory usage by utilizing the new ggml-alloc
-- [X] Remove redundant graph nodes
-- [ ] Make inference faster
-- [X] Fix the difference in output masks compared to the PyTorch implementation
-- [X] Filter masks based on stability score
-- [ ] Add support for user input
+## Next steps（下一步）
+
+- [X] Reduce memory usage by utilizing the new ggml-alloc（通过使用新的ggml-alloc减少内存的使用）
+- [X] Remove redundant graph nodes（移除冗余的graph nodes）
+- [ ] Make inference faster(使得推理更快)
+- [X] Fix the difference in output masks compared to the PyTorch implementation（修复与 PyTorch 实现相比输出掩码的差异）
+- [X] Filter masks based on stability score（根据稳定性评分过滤口罩）
+- [ ] Add support for user input（支持用户输入）
 - [ ] Support F16 for heavy F32 ops
 - [ ] Test quantization
-- [X] Support bigger model checkpoints
+- [X] Support bigger model checkpoints（支持更大的model checkpoints）
 - [ ] GPU support
 
-## Quick start
+## Quick start（快速开始）
 Setup Python and build examples according to main README.
+
+ - 设置python
+ - 根据main README构建examples
 
 ```bash
 # Download PTH model
@@ -33,7 +41,7 @@ python examples/sam/convert-pth-to-ggml.py examples/sam/sam_vit_b_01ec64.pth exa
 ./bin/sam -t 16 -i ../examples/sam/example.jpg -m ../examples/sam/ggml-model-f16.bin
 ```
 
-## Downloading and converting the model checkpoints
+## Downloading and converting the model checkpoints(下载和转化model checkpoints)
 
 You can download a [model checkpoint](https://github.com/facebookresearch/segment-anything/tree/main#model-checkpoints) and convert it to `ggml` format using the script `convert-pth-to-ggml.py`:
 
