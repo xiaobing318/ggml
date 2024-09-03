@@ -525,7 +525,7 @@ Not all of these are required, but they are all recommended. Keys that are requi
 
 The community can develop their own key-value pairs to carry additional data. However, these should be namespaced with the relevant community name to avoid collisions. For example, the `rustformers` community might use `rustformers.` as a prefix for all of their keys.（社区可以开发自己的键值对来承载更多数据。但是，这些键值对应使用相关社区名称进行命名空间划分，以避免冲突。例如，“rustformers”社区可能会使用“rustformers.”作为其所有键的前缀。）
 
-If a particular community key is widely used, it may be promoted to a standardized key.（如果某个特定社区密钥被广泛使用，则它可能会被提升为标准化密钥。）
+If a particular community key is widely used, it may be promoted to a standardized key.（如果某个特定社区key-value被广泛使用，则它可能会被提升为标准化key-value。）
 
 By convention, most counts/lengths/etc are `uint64` unless otherwise specified. This is to allow for larger models to be supported in the future. Some models may use `uint32` for their values; it is recommended that readers support both.（按照惯例，除非另有说明，大多数计数/长度等都是“uint64”。这是为了让将来支持更大的模型。某些模型可能使用“uint32”作为其值；建议读者同时支持两者。）
 
@@ -546,7 +546,7 @@ By convention, most counts/lengths/etc are `uint64` unless otherwise specified. 
 - **`general.quantization_version: uint32`**: The version of the quantization format. Not required if the model is not quantized (i.e. no tensors are quantized). If any tensors are quantized, this _must_ be present. This is separate to the quantization scheme of the tensors itself; the quantization version may change without changing the scheme's name (e.g. the quantization scheme is Q5_K, and the quantization version is 4).（量化格式的版本。如果模型未量化（即没有量化张量），则不需要。如果量化了任何张量，则必须存在此版本。这与张量本身的量化方案无关；量化版本可能会更改，但方案名称不会更改（例如，量化方案为 Q5_K，量化版本为 4）。）
 - **`general.alignment: uint32`**: the global alignment to use, as described above. This can vary to allow for different alignment schemes, but it must be a multiple of 8. Some writers may not write the alignment. If the alignment is **not** specified, assume it is `32`.（要使用的全局对齐，如上所述。这可以变化以允许不同的对齐方案，但它必须是 8 的倍数。有些作者可能不会写出对齐。如果未指定对齐，则假定它是“32”。）
 
-#### General metadat）
+#### General metadata
 
 - `general.name: string`: The name of the model. This should be a human-readable name that can be used to identify the model. It should be unique within the community that the model is defined in.（模型的名称。这应该是人类可读的名称，可用于识别模型。它在定义该模型的社区内应该是唯一的。）
 - `general.author: string`: The author of the model.（模型的作者）
