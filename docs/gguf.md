@@ -199,7 +199,7 @@ Notes:杨小兵-2025-07-10
 */
 ```
 
-```c
+```cpp
 enum ggml_type: uint32_t {
     GGML_TYPE_F32     = 0,
     GGML_TYPE_F16     = 1,
