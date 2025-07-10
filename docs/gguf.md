@@ -1,10 +1,35 @@
 # GGUF
 
 GGUF is a file format for storing models for inference with GGML and executors based on GGML. GGUF is a binary format that is designed for fast loading and saving of models, and for ease of reading. Models are traditionally developed using PyTorch or another framework, and then converted to GGUF for use in GGML.
+```c
+/*
+Notes:杨小兵-2025-07-10
 
+1、GGUF 是一种用于存储模型的文件格式，方便通过 GGML 及基于 GGML 的执行器进行推理。GGUF 是一种二进制格式，旨在实现模型的快速加载和保存，并且便于读取。模型通常使用 PyTorch 或其他框架进行开发，然后转换为 GGUF 格式，以便在 GGML 中使用。
+2、GGUF 是一种专门用于推理阶段（即运行模型而非训练模型）的文件格式，设计目标是与 GGML（一个轻量、高性能的推理库）及其相关执行器兼容。
+3、GGUF 文件格式采用二进制方式而不是文本格式其目的是为了同时达到空间节约、效率提升两个方面。对于计算机系统来说，文件就是一个字节流，其中可以保存字符串类型、整数类型、浮点数类型等等。
+  3.1 字符串类型：相对文本格式来说，二进制格式保存字符串所使用的字节数量要比文本格式保存字符串所使用的字节数量要少，并且在被计算机系统使用的时候更加的直接，因为二进制格式保存信息的方式同计算机系统使用信息的方式是相同的。
+  3.2 整数类型：相对文本格式来说，二进制格式保存字符串所使用的字节数量要比文本格式保存字符串所使用的字节数量要少，并且在被计算机系统使用的时候更加的直接，因为二进制格式保存信息的方式同计算机系统使用信息的方式是相同的。
+  3.3 浮点数类型：相对文本格式来说，二进制格式保存字符串所使用的字节数量要比文本格式保存字符串所使用的字节数量要少，并且在被计算机系统使用的时候更加的直接，因为二进制格式保存信息的方式同计算机系统使用信息的方式是相同的。
+*/
+```
 It is a successor file format to GGML, GGMF and GGJT, and is designed to be unambiguous by containing all the information needed to load a model. It is also designed to be extensible, so that new information can be added to models without breaking compatibility.
+```c
+/*
+Notes:杨小兵-2025-07-10
+
+1、GGUF 是 GGML、GGMF 和 GGJT 的后续文件格式，旨在通过包含加载模型所需的所有信息，确保格式的无歧义性。它还被设计为可扩展，以便在不破坏兼容性的情况下向模型添加新信息。
+*/
+```
 
 For more information about the motivation behind GGUF, see [Historical State of Affairs](#historical-state-of-affairs).
+```c
+/*
+Notes:杨小兵-2025-07-10
+
+1、如果想要了解更多关于 GGUF 背后的动机，查看本文中的 Historical State of Affairs 章节。
+*/
+```
 
 ## Specification
 
@@ -17,6 +42,19 @@ GGUF is a format based on the existing GGJT, but makes a few changes to the form
 - Full information: all information needed to load a model is contained in the model file, and no additional information needs to be provided by the user.
 
 The key difference between GGJT and GGUF is the use of a key-value structure for the hyperparameters (now referred to as metadata), rather than a list of untyped values. This allows for new metadata to be added without breaking compatibility with existing models, and to annotate the model with additional information that may be useful for inference or for identifying the model.
+```c
+/*
+Notes:杨小兵-2025-07-10
+
+1、它是一种基于已有 GGJT 格式的文件格式，但做了若干改进，使其更具可扩展性且更易使用。以下是它所期望具备的功能特性：
+  1.1 单文件部署：可以方便分发和加载，不依赖任何外部文件提供额外信息。
+  1.2 可扩展：可向 GGML 驱动程序添加新功能，或向 GGUF 模型添加新信息，而不破坏与现有模型的兼容性。
+  1.3 支持 mmap：模型可以通过内存映射方式加载，实现快速读写。
+  1.4 易用性强：仅需少量代码即可加载和保存，无需额外库，适用于任意编程语言。
+  1.5 信息完整：模型文件中包含加载所需的所有信息，无需用户额外提供其它内容。
+GGUF 与 GGJT 的关键区别在于，GGUF 采用 键值结构 存储超参数（现在称为元数据），而非使用未类型化的值列表。这种设计允许添加新元数据而不破坏兼容性，同时能在模型中附加有助于推理或识别模型的额外信息。
+*/
+```
 
 ### GGUF Naming Convention
 
@@ -48,7 +86,20 @@ The components are:
     - *ShardNum* : Shard position in this model. Must be 5 digits padded by zeros.
       - Shard number always starts from `00001` onwards (e.g. First shard always starts at `00001-of-XXXXX` rather than `00000-of-XXXXX`).
     - *ShardTotal* : Total number of shards in this model. Must be 5 digits padded by zeros.
+```c
+/*
+Notes:杨小兵-2025-07-10
 
+1、GGUF 文件采用如下命名规则：<基本名称><尺寸标签><精调信息><版本><编码><类型><分片信息>.gguf，如果某部分存在，就用 - 分隔。这样做的主要目的是让人一眼就能看出模型的关键属性，但并不要求所有文件完全可被自动解析，因为旧有文件命名千差万别。
+  1.1 BaseName（基本名称）：描述模型架构或基础系列，通常来自 gguf 元数据 general.basename，空格替换为横杠。
+  1.2 SizeLabel（尺寸标签）：表示参数量级，如 <expertCount>x<count><ScalePrefix>（例如 8x7B 表示 8 个 experts，7 B 参数量）；ScalePrefix 支持 Q/T/B/M/K。
+  1.3 FineTune（精调信息）：模型经过微调后的用途描述，如 Chat、Instruct，源自元数据 general.finetune，空格替横杠。
+  1.4 Version（版本号）：可选，格式 v<主>.<次>；如果无版本则默认为 v1.0，来自元数据 general.version。
+  1.5 Encoding（编码方式）：权重的编码方式，比如 Q4_0、KQ2、F16 等，根据用户的量化策略而变。
+  1.6 Type（文件类型）：GGUF 文件用途类型，如 LoRA（适配器）、vocab（仅词表）等；若缺省即为常规张量模型。
+  1.7 Shard（分片信息）：当模型拆分为多个文件存储时使用，格式 <ShardNum>-of-<ShardTotal>，Shards 均为五位数字，起始编号从 00001。
+*/
+```
 
 #### Validating Above Naming Convention
 
@@ -80,7 +131,19 @@ For example:
     - Version Number: v1.0
     - Weight Encoding Scheme: Q4_0
     - Shard: 3 out of 9 total shards
+```c
+/*
+Notes:杨小兵-2025-07-10
 
+1、最低要求字段：在 GGUF 模型文件中，BaseName（模型名）、SizeLabel（参数规模）和Version（版本号）是必须的，只有具备这三个字段，才能确保文件符合命名规范且易于验证。
+2、避免歧义解析：若省略 Version，可能会导致后续字段（如 Encoding）被误认为是 FineTune 信息。因此，规定 Version 是必要字段，以确保各部分含义可被明确区分。
+3、文中提供了一条用于验证 GGUF 文件名的正则表达式，确保字符串：
+  3.1 包含 BaseName；
+  3.2 包含 SizeLabel，形如 8x7B、100B；
+  3.3 包含 Version（v数字.数字）；
+字段顺序正确，且其他字段如 Encoding、Type、Shard 若存在，也将被正确识别并提取为子组。这个正则式可以自动解析文件名并提取各元数据部分，帮助工具自动识别和校验。
+*/
+```
 
 <details><summary>Example Node.js Regex Function</summary>
 
@@ -128,6 +191,13 @@ GGUF files are structured as follows. They use a global alignment specified in t
 Fields, including arrays, are written sequentially without alignment unless otherwise specified.
 
 Models are little-endian by default. They can also come in big-endian for use with big-endian computers; in this case, all values (including metadata values and tensors) will also be big-endian. At the time of writing, there is no way to determine if a model is big-endian; this may be rectified in future versions. If no additional information is provided, assume the model is little-endian.
+```c
+/*
+Notes:杨小兵-2025-07-10
+
+1、GGUF 文件的结构如上图所示。它们使用全局对齐方式，该对齐方式由元数据字段 general.alignment 指定，以下称为 ALIGNMENT。当需要时，文件将使用 0x00 字节填充（padding），直到下一个 ALIGNMENT 的整数倍处。所有字段（包括数组）按顺序逐一写入，除非另有说明，否则不进行对齐。默认情况下，模型采用小端序（little-endian）存储。也可以使用大端序（big-endian）格式，以适配大端序计算机；此情况下，所有数值（包括元数据和张量数据）均以大端方式存储。撰写本文档时，还没有一种方式能够自动判断模型是否为大端序；未来版本可能会对此进行改进。如果未提供额外信息，则应假定模型为小端序格式。
+*/
+```
 
 ```c
 enum ggml_type: uint32_t {
