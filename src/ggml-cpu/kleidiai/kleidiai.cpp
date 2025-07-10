@@ -3,7 +3,9 @@
 //
 #include <arm_neon.h>
 #include <assert.h>
+#include <atomic>
 #include <cfloat>
+#include <stdexcept>
 #include <stdint.h>
 #include <string.h>
 #if defined(__linux__)
@@ -24,7 +26,7 @@
 #include "ggml-impl.h"
 #include "ggml-backend-impl.h"
 #include "ggml-threading.h"
-#include "ggml-cpu-traits.h"
+#include "traits.h"
 
 #include "kernels.h"
 
