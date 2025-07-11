@@ -199,7 +199,7 @@ Notes:杨小兵-2025-07-10
 */
 ```
 
-```cpp
+```c
 enum ggml_type: uint32_t {
     GGML_TYPE_F32     = 0,
     GGML_TYPE_F16     = 1,
@@ -404,6 +404,14 @@ The community can develop their own key-value pairs to carry additional data. Ho
 If a particular community key is widely used, it may be promoted to a standardized key.
 
 By convention, most counts/lengths/etc are `uint64` unless otherwise specified. This is to allow for larger models to be supported in the future. Some models may use `uint32` for their values; it is recommended that readers support both.
+```c
+/*
+Notes:杨小兵-2025-07-11
+
+1、以下键值对（key-value pairs）是标准化的。随着未来更多使用场景的出现，这个列表可能会继续扩展。当可能时，这些键的名称会与原始模型定义保持一致，以方便相互映射。并非所有键都是必须的，但都建议你包含。对遗漏的键，应当假定其值未知，在必要时使用默认值或触发错误处理。社区也可以定义自己的键值对来携带额外信息，但应以对应社区的名称作为命名空间前缀，以避免命名冲突。例如，rustformers 社区可能会为它们所有键使用 rustformers. 作为前缀。如果某些社区键被广泛采用，可能会被提升为标准化键。按照惯例，大多数计数或长度等数据使用无符号 64 位整数（uint64），除非另有说明。这是为了支持未来更大的模型。一些模型也可能使用 uint32；建议读取方同时支持这两种类型。
+2、下列内容罗列出来的就是一些标准化的键值对，目前只是简单了解一下，在需要精确知道其内容的时候可以反过来查看其内容。
+*/
+```
 
 ### General
 
