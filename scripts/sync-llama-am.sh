@@ -74,22 +74,7 @@ while read c; do
         ggml/cmake/common.cmake \
         ggml/cmake/ggml-config.cmake.in \
         ggml/src/ggml-cpu/cmake/FindSIMD.cmake \
-        ggml/src/ggml*.h \
-        ggml/src/ggml*.c \
-        ggml/src/ggml*.cpp \
-        ggml/src/gguf*.cpp \
-        ggml/src/ggml-blas/* \
-        ggml/src/ggml-cann/* \
-        ggml/src/ggml-cpu/* \
-        ggml/src/ggml-cuda/* \
-        ggml/src/ggml-hip/* \
-        ggml/src/ggml-kompute/* \
-        ggml/src/ggml-metal/* \
-        ggml/src/ggml-musa/* \
-        ggml/src/ggml-opencl/* \
-        ggml/src/ggml-rpc/* \
-        ggml/src/ggml-sycl/* \
-        ggml/src/ggml-vulkan/* \
+        ggml/src/ggml* \
         ggml/include/ggml*.h \
         ggml/include/gguf*.h \
         tests/test-opt.cpp \
@@ -132,22 +117,7 @@ if [ -f $SRC_GGML/llama-src.patch ]; then
     # ggml/cmake/ggml-config.cmake.in        -> cmake/ggml-config.cmake.in
     # ggml/src/ggml-cpu/cmake/FindSIMD.cmake -> src/ggml-cpu/cmake/FindSIMD.cmake
     #
-    # ggml/src/ggml*.c          -> src/ggml*.c
-    # ggml/src/ggml*.cpp        -> src/ggml*.cpp
-    # ggml/src/ggml*.h          -> src/ggml*.h
-    # ggml/src/gguf*.cpp        -> src/gguf*.h
-    # ggml/src/ggml-blas/*      -> src/ggml-blas/*
-    # ggml/src/ggml-cann/*      -> src/ggml-cann/*
-    # ggml/src/ggml-cpu/*       -> src/ggml-cpu/*
-    # ggml/src/ggml-cuda/*      -> src/ggml-cuda/*
-    # ggml/src/ggml-hip/*       -> src/ggml-hip/*
-    # ggml/src/ggml-kompute/*   -> src/ggml-kompute/*
-    # ggml/src/ggml-metal/*     -> src/ggml-metal/*
-    # ggml/src/ggml-musa/*      -> src/ggml-musa/*
-    # ggml/src/ggml-opencl/*    -> src/ggml-opencl/*
-    # ggml/src/ggml-rpc/*       -> src/ggml-rpc/*
-    # ggml/src/ggml-sycl/*      -> src/ggml-sycl/*
-    # ggml/src/ggml-vulkan/*    -> src/ggml-vulkan/*
+    # ggml/src/ggml* -> src/ggml*
     #
     # ggml/include/ggml*.h -> include/ggml*.h
     # ggml/include/gguf*.h -> include/gguf*.h
@@ -161,37 +131,22 @@ if [ -f $SRC_GGML/llama-src.patch ]; then
     # scripts/gen-authors.sh -> scripts/gen-authors.sh
 
     cat llama-src.patch | sed -E \
-        -e 's/([[:space:]]| [ab]\/)ggml\/CMakeLists\.txt/\1CMakeLists.txt/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/CMakeLists\.txt/\1src\/CMakeLists.txt/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/cmake\/BuildTypes\.cmake/\1cmake\/BuildTypes\.cmake/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/cmake\/GitVars\.cmake/\1cmake\/GitVars\.cmake/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/cmake\/common\.cmake/\1cmake\/common\.cmake/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/cmake\/ggml-config\.cmake\.in/\1cmake\/ggml-config\.cmake\.in/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-cpu\/cmake\/FindSIMD\.cmake/\1src\/ggml-cpu\/cmake\/FindSIMD\.cmake/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml(.*)\.c/\1src\/ggml\2.c/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml(.*)\.cpp/\1src\/ggml\2.cpp/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml(.*)\.h/\1src\/ggml\2.h/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/gguf(.*)\.cpp/\1src\/gguf\2.cpp/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-blas\//\1src\/ggml-blas\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-cann\//\1src\/ggml-cann\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-cpu\//\1src\/ggml-cpu\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-cuda\//\1src\/ggml-cuda\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-hip\//\1src\/ggml-hip\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-kompute\//\1src\/ggml-kompute\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-metal\//\1src\/ggml-metal\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-musa\//\1src\/ggml-musa\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-opencl\//\1src\/ggml-opencl\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-rpc\//\1src\/ggml-rpc\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-sycl\//\1src\/ggml-sycl\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/src\/ggml-vulkan\//\1src\/ggml-vulkan\//g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/include\/ggml(.*)\.h/\1include\/ggml\2.h/g' \
-        -e 's/([[:space:]]| [ab]\/)ggml\/include\/gguf(.*)\.h/\1include\/gguf\2.h/g' \
-        -e 's/([[:space:]]| [ab]\/)tests\/test-opt\.cpp/\1tests\/test-opt.cpp/g' \
-        -e 's/([[:space:]]| [ab]\/)tests\/test-quantize-fns\.cpp/\1tests\/test-quantize-fns.cpp/g' \
-        -e 's/([[:space:]]| [ab]\/)tests\/test-quantize-perf\.cpp/\1tests\/test-quantize-perf.cpp/g' \
-        -e 's/([[:space:]]| [ab]\/)tests\/test-backend-ops\.cpp/\1tests\/test-backend-ops.cpp/g' \
-        -e 's/([[:space:]]| [ab]\/)LICENSE/\1LICENSE/g' \
-        -e 's/([[:space:]]| [ab]\/)scripts\/gen-authors\.sh/\1scripts\/gen-authors.sh/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/CMakeLists\.txt/\1CMakeLists.txt/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/src\/CMakeLists\.txt/\1src\/CMakeLists.txt/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/cmake\/BuildTypes\.cmake/\1cmake\/BuildTypes\.cmake/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/cmake\/GitVars\.cmake/\1cmake\/GitVars\.cmake/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/cmake\/common\.cmake/\1cmake\/common\.cmake/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/cmake\/ggml-config\.cmake\.in/\1cmake\/ggml-config\.cmake\.in/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/src\/ggml-cpu\/cmake\/FindSIMD\.cmake/\1src\/ggml-cpu\/cmake\/FindSIMD\.cmake/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/src\/ggml(.*)/\1src\/ggml\2/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/include\/ggml(.*)\.h/\1include\/ggml\2.h/g' \
+        -e 's/(^[[:space:]]| [ab]\/)ggml\/include\/gguf(.*)\.h/\1include\/gguf\2.h/g' \
+        -e 's/(^[[:space:]]| [ab]\/)tests\/test-opt\.cpp/\1tests\/test-opt.cpp/g' \
+        -e 's/(^[[:space:]]| [ab]\/)tests\/test-quantize-fns\.cpp/\1tests\/test-quantize-fns.cpp/g' \
+        -e 's/(^[[:space:]]| [ab]\/)tests\/test-quantize-perf\.cpp/\1tests\/test-quantize-perf.cpp/g' \
+        -e 's/(^[[:space:]]| [ab]\/)tests\/test-backend-ops\.cpp/\1tests\/test-backend-ops.cpp/g' \
+        -e 's/(^[[:space:]]| [ab]\/)LICENSE/\1LICENSE/g' \
+        -e 's/(^[[:space:]]| [ab]\/)scripts\/gen-authors\.sh/\1scripts\/gen-authors.sh/g' \
         > llama-src.patch.tmp
     mv llama-src.patch.tmp llama-src.patch
 
