@@ -1,12 +1,24 @@
+#[[
+1. 配置作用于 ggml 项目上的 CMake 版本最低不能小于 3.14 即 CMake 的版本大于等于 3.14 ，这样可以确保 CMakeLists.txt 和模块文件中使用的语法可以被正确的解析、执行。
+2. 设置整体项目名称以及配置使用的编程语言，这些内容是在仓库的顶层 CMakeLists.txt 文件中设置，而目前的 CMakeLists.txt 是顶层文件。
+]]
 cmake_minimum_required(VERSION 3.14) # for add_link_options and implicit target directories.
 project("ggml" C CXX ASM)
 
 ### GGML Version
+#[[
+1. 配置 ggml 仓库的版本信息，分为 major/minor/patch 三个部分。
+2. 通过 major/minor/patch 三个部分拼接完整的字符串类型的版本信息。
+]]
 set(GGML_VERSION_MAJOR 0)
 set(GGML_VERSION_MINOR 9)
 set(GGML_VERSION_PATCH 4)
 set(GGML_VERSION_BASE "${GGML_VERSION_MAJOR}.${GGML_VERSION_MINOR}.${GGML_VERSION_PATCH}")
 
+#[[
+1. 在当前系统的搜索路径里，找名字叫 git 或 git.exe 的可执行文件，把找到的绝对路径存到变量 GIT_EXE 中，搜索时不要被 CMake 的“交叉编译根路径（CMAKE_FIND_ROOT_PATH）”影响，如果找不到，GIT_EXE 会变成 GIT_EXE-NOTFOUND 。
+2. 如果在当前系统中找到了 git 或者 git.exe 可执行文件则执行两个 git/git.exe 相关的命令从而获取一些信息，execute_process 是 CMake 内置的一条命令，用来在配置阶段执行外部可执行文件的，例如执行 gcc/python/git 可执行文件，将可执行文件执行后的输出结果保存到指定变量中，以供后续使用。
+]]
 find_program(GIT_EXE NAMES git git.exe NO_CMAKE_FIND_ROOT_PATH)
 if(GIT_EXE)
     # Get current git commit hash
@@ -25,26 +37,51 @@ if(GIT_EXE)
     )
 endif()
 
+#[[
+1. 在当前目录/作用域中创建一个普通变量用来保存 ggml 的版本信息。
+]]
 set(GGML_VERSION "${GGML_VERSION_BASE}")
 
+#[[
+1. 如果之前 CMake 调用外部可执行文件没有获取得到 ggml 仓库的 commit 信息则将指定变量设置为 unknown 。
+]]
 if(NOT GGML_BUILD_COMMIT)
     set(GGML_BUILD_COMMIT "unknown")
 endif()
 
 # Build the commit string with optional dirty flag
+#[[
+1. 如果定义了 GGML_GIT_DIRTY 变量并且该变量的值为 1 ，则将字符串变量 GGML_BUILD_COMMIT 赋值为拼接后的值。
+]]
 if(DEFINED GGML_GIT_DIRTY AND GGML_GIT_DIRTY EQUAL 1)
     set(GGML_BUILD_COMMIT "${GGML_BUILD_COMMIT}-dirty")
 endif()
 
+#[[
+1. 包含、执行 CMake 官方的模块文件，该模块文件用来进行一些检查工作。
+]]
 include(CheckIncludeFileCXX)
 
+#[[
+1. 配置 CMake 内置的一个功能：在生成构建系统时，额外生成一个 compile_commands.json 文件
+2. 导出的形式是 compile_commands.json 文件形式，该文件中记录了对每一个编译单元使用的编译命令是什么。
+3. 这个功能只对支持的 generator 生效，比如 Makefiles / Ninja；对 Visual Studio、Xcode 等 generator 会被忽略。
+]]
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+#[[
+1. 如果构建、编译的目标平台不是 XCODE/MSVC 并且 CMAKE_BUILD_TYPE 为空，则默认指定构建类型是 Release 类型。
+2. 这部分配置针对 GNU/Linux 平台，例如 Ubuntu/Debian 等等。
+]]
 if (NOT XCODE AND NOT MSVC AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+#[[
+1. 如果 ggml 不是作为另外项目的依赖被构建、编译，那么将 GGML_STANDALONE 配置为 ON ，反之则配置为 OFF。
+2. 其中 CMAKE_BINARY_DIR 是在 CMake-GUI 界面中选择 "Where to build the binaries" 的目录路径。
+]]
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(GGML_STANDALONE ON)
 
@@ -56,6 +93,12 @@ else()
     set(GGML_STANDALONE OFF)
 endif()
 
+#[[
+1. 根据不同的构建、编译平台进行不同的配置：
+  1.1 EMSCRIPTEN 开发环境：创建默认构建动态链接库开关，赋值为 OFF 。用 Emscripten 把 ggml 编译成 WebAssembly（WASM）时，生成的 ggml.js 文件里会内嵌（embed）WASM 二进制内容，不再另外生成单独的 ggml.wasm 文件，而是一个 JS 文件搞定全部。
+  1.2 MINGW 开发环境：在 MINGW 开发环境中将默认设置修改为 OFF 状态。
+  1.3 其它开发环境：将默认构建动态链接库开关调整为 ON 。
+]]
 if (EMSCRIPTEN)
     set(BUILD_SHARED_LIBS_DEFAULT OFF)
 
@@ -69,12 +112,19 @@ else()
 endif()
 
 # remove the lib prefix on win32 mingw
+#[[
+1. 如果构建、编译使用的是 MSVC 工具链，首先需要创建三个字符串变量，默认赋值为空字符串。
+]]
 if (WIN32)
     set(CMAKE_STATIC_LIBRARY_PREFIX "")
     set(CMAKE_SHARED_LIBRARY_PREFIX "")
     set(CMAKE_SHARED_MODULE_PREFIX  "")
 endif()
 
+#[[
+1. 创建三个缓存变量供开发者确认选择。
+2. 动态链接库：可执行文件里只留下“我需要某个库里哪些符号”的信息，运行时由操作系统的动态链接器去把库文件映射进来。
+]]
 option(BUILD_SHARED_LIBS           "ggml: build shared libraries" ${BUILD_SHARED_LIBS_DEFAULT})
 option(GGML_BACKEND_DL             "ggml: build backends as dynamic libraries (requires BUILD_SHARED_LIBS)" OFF)
 set(GGML_BACKEND_DIR "" CACHE PATH "ggml: directory to load dynamic backends from (requires GGML_BACKEND_DL")
@@ -85,6 +135,9 @@ set(GGML_BACKEND_DIR "" CACHE PATH "ggml: directory to load dynamic backends fro
 
 # TODO: mark all options as advanced when not GGML_STANDALONE
 
+#[[
+1. 根据是否在 Apple 平台构建，设置 Metal 和 BLAS 的默认启用状态及 BLAS 供应商（Apple 平台默认开启并指定 Apple，其它平台默认关闭并使用 Generic）。
+]]
 if (APPLE)
     set(GGML_METAL_DEFAULT ON)
     set(GGML_BLAS_DEFAULT ON)
@@ -95,6 +148,9 @@ else()
     set(GGML_BLAS_VENDOR_DEFAULT "Generic")
 endif()
 
+#[[
+1. 在交叉编译或启用可复现构建(SOURCE_DATE_EPOCH)时，默认关闭本机 CPU 特性优化(GGML_NATIVE_DEFAULT=OFF)，其他情况下默认开启，以避免交叉环境/可复现构建中使用 -march=native 等不稳定配置。
+]]
 if (CMAKE_CROSSCOMPILING OR DEFINED ENV{SOURCE_DATE_EPOCH})
     message(STATUS "Setting GGML_NATIVE_DEFAULT to OFF")
     set(GGML_NATIVE_DEFAULT OFF)
@@ -103,10 +159,16 @@ else()
 endif()
 
 # defaults
+#[[
+1. 如果 GGML_LLAMAFILE_DEFAULT 没有被创建则创建该变量并且赋值为 OFF 。
+]]
 if (NOT GGML_LLAMAFILE_DEFAULT)
     set(GGML_LLAMAFILE_DEFAULT OFF)
 endif()
 
+#[[
+1. 如果 GGML_CUDA_GRAPHS_DEFAULT 没有被创建则创建该变量并且赋值为 OFF 。
+]]
 if (NOT GGML_CUDA_GRAPHS_DEFAULT)
     set(GGML_CUDA_GRAPHS_DEFAULT OFF)
 endif()
@@ -273,8 +335,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED true)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+#[[
+1. 查找并启用 CMake 自带的 Threads 模块以获取线程库/编译选项，REQUIRED 表示若未找到线程支持则中止配置。
+]]
 find_package(Threads REQUIRED)
 
+#[[
+1. 引入 CMake 自带的 GNUInstallDirs 模块，定义标准安装目录变量(如 CMAKE_INSTALL_BINDIR/CMAKE_INSTALL_LIBDIR 等)供后续 install() 使用。
+]]
 include(GNUInstallDirs)
 
 #
@@ -300,9 +368,15 @@ endif ()
 # install
 #
 
+#[[
+1. 引入 CMakePackageConfigHelpers 模块，用于生成/安装 GGML 的 package 配置文件(如 ggml-config.cmake、ggml-version.cmake)，以便其他项目通过 find_package 使用 GGML。
+]]
 include(CMakePackageConfigHelpers)
 
 # all public headers
+#[[
+1. 创建字符串列表变量用来保存作为公开头文件列表，以供其它项目依赖 ggml 所需要的头文件，这些头文件在 install 阶段将会被拷贝到指定安装目录中。
+]]
 set(GGML_PUBLIC_HEADERS
     include/ggml.h
     include/ggml-cpu.h
@@ -324,9 +398,23 @@ set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
 #if (GGML_METAL)
 #    set_target_properties(ggml PROPERTIES RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/ggml-metal.metal")
 #endif()
+#[[
+1. 安装 ggml 目标：把生成的共享库安装到库目录，并同时安装该目标声明的 PUBLIC_HEADER 头文件。
+2. 安装 ggml-base 目标：只安装其生成的共享库到库目录（不额外安装头文件）。
+3. 提示：
+  3.1 TARGETS ggml / ggml-base：指的是前面用 add_library(ggml ...) / add_library(ggml-base ...) 定义的库目标。
+  3.2 LIBRARY：表示安装“库文件”（在 Linux 是 .so，macOS 是 .dylib，Windows 通常参与到 .dll/.lib 的安装策略里）。
+  3.3 PUBLIC_HEADER：会安装这个目标在 PUBLIC_HEADER 属性中列出的头文件，常用来对外暴露 API。
+]]
 install(TARGETS ggml LIBRARY PUBLIC_HEADER)
 install(TARGETS ggml-base LIBRARY)
 
+#[[
+1. 当 ggml 以“独立库”（standalone）方式构建时：
+  1.1 用模板文件 ggml.pc.in 生成 ggml.pc（pkg-config 描述文件）。
+  1.2 在安装阶段把这个 ggml.pc 安装到 share/pkgconfig，方便别的项目通过 pkg-config 找到 ggml。
+2. CMake 中的安装逻辑目前理解不深。
+]]
 if (GGML_STANDALONE)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ggml.pc.in
         ${CMAKE_CURRENT_BINARY_DIR}/ggml.pc
@@ -353,8 +441,12 @@ set(variable_set_statements
 
 set(GGML_SHARED_LIB ${BUILD_SHARED_LIBS})
 
+#[[
+1. 获取当前目录/作用域中定义变量的列表，即当前目录/作用域中所有定义的变量，将其保存到 all_varibles ，然后对这些变量逐个进行处理。
+]]
 get_cmake_property(all_variables VARIABLES)
 foreach(variable_name IN LISTS all_variables)
+    message("variable_name:${variable_name}")
     if(variable_name MATCHES "^GGML_")
         string(REPLACE ";" "\\;"
                variable_value "${${variable_name}}")
