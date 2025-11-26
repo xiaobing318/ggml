@@ -442,11 +442,11 @@ set(variable_set_statements
 set(GGML_SHARED_LIB ${BUILD_SHARED_LIBS})
 
 #[[
-1. 获取当前目录/作用域中定义变量的列表，即当前目录/作用域中所有定义的变量，将其保存到 all_varibles ，然后对这些变量逐个进行处理。
+1. 获取当前目录/作用域中定义变量的列表，即当前目录/作用域中所有定义的变量，将其保存到 all_varibles ，然后对这些变量逐个进行处理。现在把所有 GGML_ 开头的配置变量都记录下来，生成一段能重新设置它们的 CMake 脚本，打包进 ggml-config.cmake 之类的文件里，以后别人 find_package 时就能恢复我们当时的配置环境。
+2. ${variable_name} 保存的是变量的名称，而 ${${variable_name}} 保存的则是变量名称对应的值。
 ]]
 get_cmake_property(all_variables VARIABLES)
 foreach(variable_name IN LISTS all_variables)
-    message("variable_name:${variable_name}")
     if(variable_name MATCHES "^GGML_")
         string(REPLACE ";" "\\;"
                variable_value "${${variable_name}}")
@@ -460,11 +460,24 @@ set(GGML_VARIABLES_EXPANDED ${variable_set_statements})
 
 # Create the CMake package and set install location.
 
+#[[
+1. 记录要安装的 ggml 版本号，并定义 3 个可配置的安装路径变量：
+   - GGML_INCLUDE_INSTALL_DIR：头文件安装目录
+   - GGML_LIB_INSTALL_DIR    ：库文件安装目录
+   - GGML_BIN_INSTALL_DIR    ：可执行文件安装目录
+2. 这三个目录变量默认取自 CMAKE_INSTALL_INCLUDEDIR / CMAKE_INSTALL_LIBDIR / CMAKE_INSTALL_BINDIR（这些通常由 GNUInstallDirs 模块或 CMake 默认值提供），在 CMake GUI 或命令行中可以被用户修改。
+]]
 set(GGML_INSTALL_VERSION ${GGML_VERSION})
 set(GGML_INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE PATH "Location of header  files")
 set(GGML_LIB_INSTALL_DIR     ${CMAKE_INSTALL_LIBDIR}     CACHE PATH "Location of library files")
 set(GGML_BIN_INSTALL_DIR     ${CMAKE_INSTALL_BINDIR}     CACHE PATH "Location of binary  files")
 
+#[[
+1. 这两行使用 CMakePackageConfigHelpers 模块提供的工具函数生成 ggml 的 package 配置文件，以便其他项目可以通过 find_package(ggml) 来找到并使用已安装的 ggml：
+   - configure_package_config_file() 基于模板 ggml-config.cmake.in 生成 ggml-config.cmake，写入头文件/库/可执行文件的安装路径等信息；
+   - write_basic_package_version_file() 生成 ggml-version.cmake，提供版本号和版本兼容性信息。
+2. INSTALL_DESTINATION 指定未来安装时这两个配置文件将被放到的目录前缀；PATH_VARS 中的 GGML_INCLUDE_INSTALL_DIR / GGML_LIB_INSTALL_DIR / GGML_BIN_INSTALL_DIR会在生成 ggml-config.cmake 时被自动处理为与安装前缀兼容的路径；COMPATIBILITY SameMajorVersion 表示只要主版本号一致，就认为版本是兼容的。
+]]
 configure_package_config_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ggml-config.cmake.in
         ${CMAKE_CURRENT_BINARY_DIR}/ggml-config.cmake
@@ -478,6 +491,9 @@ write_basic_package_version_file(
     VERSION ${GGML_INSTALL_VERSION}
     COMPATIBILITY SameMajorVersion)
 
+#[[
+1. 给编译系统添加两个预处理宏，这两个宏在具体的代码中会被使用到而不是用在动态库属性中，例如在代码中以字符串等形式出现，在运行时能知道自己是哪个版本、哪个 git 提交，以及在日志 / about 信息里显示，用的就是这俩宏。可以通过给编译器添加宏从而控制编译代码的行为，类似直接通过 -DXXX 的方式传递宏定义。
+]]
 target_compile_definitions(ggml-base PRIVATE
     GGML_VERSION="${GGML_INSTALL_VERSION}"
     GGML_COMMIT="${GGML_BUILD_COMMIT}"
@@ -485,11 +501,27 @@ target_compile_definitions(ggml-base PRIVATE
 message(STATUS "ggml version: ${GGML_INSTALL_VERSION}")
 message(STATUS "ggml commit:  ${GGML_BUILD_COMMIT}")
 
+#[[
+1. 使用 CMake 的 install(FILES ...) 命令为安装步骤添加一条规则：在执行 “cmake --install” 或 “ninja install” 时，将生成的 ggml-config.cmake 和 ggml-version.cmake 这两个文件复制到 ${CMAKE_INSTALL_LIBDIR}/cmake/ggml 目录，供下游项目通过 find_package(ggml) 查找使用。
+2. 对 install 理解的不够。
+]]
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ggml-config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/ggml-version.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ggml)
 
+#[[
+1. 这里的 MSVC 指的是使用 MSVC 编译器工具链，不是“Windows 操作系统”。Windows 上可以不用 MSVC（比如用 MinGW、Clang），这时 MSVC 为假，因此 MSVC/MinGW/Clang 等等都是编译器工具链而不是平台。
+2. 对比分析：
+  2.1 WIN32：表示操作系统平台是 Windows（包括 32/64 位），无论你用的是 MSVC、MinGW、Clang，只要目标平台是 Windows，WIN32 就为真。
+  2.2 MSVC：表示用的是 MSVC 编译器（或者与 MSVC 兼容的，比如 clang-cl）。
+3. 平台变量：WIN32、UNIX、APPLE、...... 用于区分在哪个操作系统上？
+4. 编译器变量：MSVC、MINGW、CMAKE_CXX_COMPILER_ID、...... 用于区分在哪个编译器？
+]]
 if (MSVC)
+    #[[
+    1. 给这些目标加上一堆 MSVC 编译选项 /wdXXXX，目的是 关闭这些 warning。
+    2. 4005/4244/4267 这些是警告编号而不是错误类型。
+    ]]
     set(MSVC_WARNING_FLAGS
         /wd4005  # Macro redefinition
         /wd4244  # Conversion from one type to another type, possible loss of data
