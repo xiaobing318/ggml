@@ -1,6 +1,6 @@
 #[[
 1. 配置作用于 ggml 项目上的 CMake 版本最低不能小于 3.14 即 CMake 的版本大于等于 3.14 ，这样可以确保 CMakeLists.txt 和模块文件中使用的语法可以被正确的解析、执行。
-2. 设置整体项目名称以及配置使用的编程语言，这些内容是在仓库的顶层 CMakeLists.txt 文件中设置，而目前的 CMakeLists.txt 是顶层文件。
+2. 配置整体项目名称以及使用的编程语言，这些内容是在仓库的顶层 CMakeLists.txt 文件中设置，而目前的 CMakeLists.txt 是顶层文件。
 ]]
 cmake_minimum_required(VERSION 3.14) # for add_link_options and implicit target directories.
 project("ggml" C CXX ASM)
@@ -58,20 +58,22 @@ if(DEFINED GGML_GIT_DIRTY AND GGML_GIT_DIRTY EQUAL 1)
 endif()
 
 #[[
-1. 包含、执行 CMake 官方的模块文件，该模块文件用来进行一些检查工作。
+1. 引入 CMake 自带模块 CheckIncludeFileCXX.cmake。
+2. 该模块提供 CHECK_INCLUDE_FILE_CXX() 宏，会尝试编译一个最小的 C++ 测试程序来包含指定头文件，用于检测当前编译器/平台上是否存在该头文件，并把结果记录到缓存变量/宏中，方便后续做条件编译。
+3. 目前该模块文件在该项目中没有被使用，可能曾经使用过。
 ]]
 include(CheckIncludeFileCXX)
 
 #[[
 1. 配置 CMake 内置的一个功能：在生成构建系统时，额外生成一个 compile_commands.json 文件
 2. 导出的形式是 compile_commands.json 文件形式，该文件中记录了对每一个编译单元使用的编译命令是什么。
-3. 这个功能只对支持的 generator 生效，比如 Makefiles / Ninja；对 Visual Studio、Xcode 等 generator 会被忽略。
+3. 这个功能只对支持的 generator 生效，比如 Makefiles / Ninja；对 Visual Studio、Xcode 等 generator 会被忽略，因为如果想要针对这些 generator 达到同样的效果付出的成本是很大的。
 ]]
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #[[
-1. 如果构建、编译的目标平台不是 XCODE/MSVC 并且 CMAKE_BUILD_TYPE 为空，则默认指定构建类型是 Release 类型。
-2. 这部分配置针对 GNU/Linux 平台，例如 Ubuntu/Debian 等等。
+1. 如果构建、编译使用的不是 XCODE/MSVC 编译器工具链并且没有创建 CMAKE_BUILD_TYPE 变量，那么默认指定构建类型是 Release 类型。
+2. 这部分设置是根据不同的编译器工具链进行的设置，而不是操作系统平台。
 ]]
 if (NOT XCODE AND NOT MSVC AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -95,9 +97,10 @@ endif()
 
 #[[
 1. 根据不同的构建、编译平台进行不同的配置：
-  1.1 EMSCRIPTEN 开发环境：创建默认构建动态链接库开关，赋值为 OFF 。用 Emscripten 把 ggml 编译成 WebAssembly（WASM）时，生成的 ggml.js 文件里会内嵌（embed）WASM 二进制内容，不再另外生成单独的 ggml.wasm 文件，而是一个 JS 文件搞定全部。
-  1.2 MINGW 开发环境：在 MINGW 开发环境中将默认设置修改为 OFF 状态。
-  1.3 其它开发环境：将默认构建动态链接库开关调整为 ON 。
+  1.1 Emscripten 编译器工具链：如果使用 Emscripten 编译器工具链构建 ggml 项目，那么编译 ggml 项目使用静态库的方式而不是动态库的方式，因为静态库的方式更加的简单可靠，并且在 Emscripten 下，默认把 wasm 内容塞进一个 ggml.js 里，变成“单文件部署”模式，方便在 web 上分发和加载。
+  1.2 Mingw 编译器工具链：如果使用 Mingw 编译器工具链构建 ggml 项目，那么编译 ggml 项目使用静态库的方式而不是动态库的方式，因为静态库的方式更加的简单可靠。
+  1.3 其它编译器工具链：如果使用其它编译器工具链构建 ggml 项目，那么编译 ggml 项目使用动态库的方式而不是静态库的方式，因为本地运行 ggml 项目的动态库更具有优势。
+2. Emscripten 是一个开源的编译器工具链，主要功能是将 C/C++ 代码编译成 WebAssembly (Wasm) 模块和相应的 JavaScript“胶水”代码，使得这些原生代码能够在 Web 浏览器中或任何支持 WebAssembly 运行时的环境中以接近原生的速度运行。
 ]]
 if (EMSCRIPTEN)
     set(BUILD_SHARED_LIBS_DEFAULT OFF)
@@ -113,7 +116,9 @@ endif()
 
 # remove the lib prefix on win32 mingw
 #[[
-1. 如果构建、编译使用的是 MSVC 工具链，首先需要创建三个字符串变量，默认赋值为空字符串。
+1. CMake 中是通过例如 WIN32/UNIX/APPLE 来区分不同的操作系统，因此这部分的变量赋值则是针对 Windows 平台的。
+2. CMAKE_STATIC_LIBRARY_PREFIX、CMAKE_SHARED_LIBRARY_PREFIX、CMAKE_SHARED_MODULE_PREFIX 都是 CMake 的内置变量/缓存键，控制生成静态库、共享库、模块库的文件名前缀。不同平台/工具链有默认值（Unix 上通常是 lib，Windows/MSVC 通常是空）。通过设置它们为空，可以覆盖默认的 lib 前缀。
+3. 如果在 Windows 操作系统平台上使用 MinGW/Unix 工具链，那么 MinGW/Unix 工具链根据产物命名规则将会往产物默认添加lib字符串，例如在 Windows + MSVC 组合下编译产物命名为 ggml.dll，而在 Windows + MinGW 组合下编译产物命名为 libggml.dll/libggml.a/libggml.dll.a 之类的。
 ]]
 if (WIN32)
     set(CMAKE_STATIC_LIBRARY_PREFIX "")
@@ -122,7 +127,7 @@ if (WIN32)
 endif()
 
 #[[
-1. 创建三个缓存变量供开发者确认选择。
+1. GGML_BACKEND_DL 意味着 CPU 后端要做成可加载的动态插件，预期可以被不同机器/进程加载。GGML_NATIVE 会给这个插件加上 -march=native 等本机特性，生成的二进制只能在构建机的 ISA 上运行，一旦插件被拿到别的 CPU 上就可能崩/非法指令，所以被判定为不兼容。设计意图是：做成可分发的动态后端时必须保证可移植性，不能捆绑本机专属指令集。替代方案是 GGML_CPU_ALL_VARIANTS：构建多套 ISA 变体（baseline/AVX2/AVX512 等），运行时选择合适的变体，从而既能做动态加载，又能利用高级指令。若你只在单机使用，也可关掉 GGML_BACKEND_DL 或关掉 GGML_NATIVE（默认是打开的状态）。
 2. 动态链接库：可执行文件里只留下“我需要某个库里哪些符号”的信息，运行时由操作系统的动态链接器去把库文件映射进来。
 ]]
 option(BUILD_SHARED_LIBS           "ggml: build shared libraries" ${BUILD_SHARED_LIBS_DEFAULT})
@@ -136,7 +141,11 @@ set(GGML_BACKEND_DIR "" CACHE PATH "ggml: directory to load dynamic backends fro
 # TODO: mark all options as advanced when not GGML_STANDALONE
 
 #[[
-1. 根据是否在 Apple 平台构建，设置 Metal 和 BLAS 的默认启用状态及 BLAS 供应商（Apple 平台默认开启并指定 Apple，其它平台默认关闭并使用 Generic）。
+1. 根据不同的操作系统平台进行变量配置：
+  1.1 如果操作系统是 macOS/IOS 那么开启和该平台相关联的配置并且将 BLAS 实现设置为 Apple 。
+  1.2 如果操作系统是 Windows/Linux 那么关闭和该平台相关联的配置并且将 BLAS 实现设置为 Generic ，这里的 Generic 意味着不要特指，用找到的任意实现/参考实现。
+2. BLAS 是 Basic Linear Algebra Subprograms 的缩写，一组统一接口的基础线性代数例程规范，主要包含向量/矩阵的加减、标量乘、矩阵乘（GEMM）、求解三角/对称系统等。各平台/供应商会提供各自的高性能实现（如 Intel MKL、OpenBLAS、Apple Accelerate/vecLib、Netlib BLAS 等），CMake 中的 GGML_BLAS_* 选项就是决定是否启用 BLAS 后端以及选择哪家实现，以便把部分算子交给这些高度优化的库来加速。
+3. 可以参考 ggml/docs/selfLerning-BLAS.md 文档中的内容。
 ]]
 if (APPLE)
     set(GGML_METAL_DEFAULT ON)
@@ -150,6 +159,7 @@ endif()
 
 #[[
 1. 在交叉编译或启用可复现构建(SOURCE_DATE_EPOCH)时，默认关闭本机 CPU 特性优化(GGML_NATIVE_DEFAULT=OFF)，其他情况下默认开启，以避免交叉环境/可复现构建中使用 -march=native 等不稳定配置。
+2. 如果 GGML_NATIVE_DEFAULT=ON 那么意味着根据当前机器上所具有的一些特性进行编译。例如当前机器支持 AVX512 指令，那么开启 GGML_NATIVE_DEFAULT 意味着可以获得更好的性能。对于使用同一 ISA 的 CPU 来说，开启 GGML_NATIVE_DEFAULT 并不是一个好的选择，因为如果源CPU 上拥有的特性更丰富，而目标 CPU 上拥有的特性不如源 CPU 上的特性丰富，将源 CPU 上编译的 ggml 拷贝到 目标 CPU 上运行可能会出现问题。在发布版本的时候可以关闭 GGML_NATIVE_DEFAULT 从而使得编译产物更加通用（可以打开 GGML_CPU_ALL_VARIANTS ）。
 ]]
 if (CMAKE_CROSSCOMPILING OR DEFINED ENV{SOURCE_DATE_EPOCH})
     message(STATUS "Setting GGML_NATIVE_DEFAULT to OFF")
@@ -160,14 +170,15 @@ endif()
 
 # defaults
 #[[
-1. 如果 GGML_LLAMAFILE_DEFAULT 没有被创建则创建该变量并且赋值为 OFF 。
+1. 如果 GGML_LLAMAFILE_DEFAULT 没有被创建则创建该变量并且赋值为 OFF ,该变量将会作为 GGML_LLAMAFILE 的赋值对象，默认情况下该变量都是没有被创建的。
 ]]
 if (NOT GGML_LLAMAFILE_DEFAULT)
     set(GGML_LLAMAFILE_DEFAULT OFF)
 endif()
 
 #[[
-1. 如果 GGML_CUDA_GRAPHS_DEFAULT 没有被创建则创建该变量并且赋值为 OFF 。
+1. 如果 GGML_CUDA_GRAPHS_DEFAULT 没有被创建则创建该变量并且赋值为 OFF ，该变量将会作为 GGML_CUDA_GRAPHS 的赋值对象，默认情况下该变量都是没有被创建的。
+2. 在推理（尤其 llama.cpp 的重复图）时对一整段 CUDA kernel 进行 Graph capture + 复用，减少每步的 kernel launch 和同步开销，提升吞吐。默认 OFF ，因为 CUDA Graph 需要较新驱动/硬件且对图形结构稳定性敏感；部分节点/动态 shape 会触发禁用或退回普通路径，某些 GPU 架构或频繁更新图会导致捕获失败或收益不明显。
 ]]
 if (NOT GGML_CUDA_GRAPHS_DEFAULT)
     set(GGML_CUDA_GRAPHS_DEFAULT OFF)
@@ -193,12 +204,20 @@ option(GGML_SANITIZE_ADDRESS   "ggml: enable address sanitizer"   OFF)
 option(GGML_SANITIZE_UNDEFINED "ggml: enable undefined sanitizer" OFF)
 
 # instruction set specific
+#[[
+1. “默认关掉 SSE/AVX 选项”并不等于编译产物不用这些指令；因为此时 GGML_NATIVE 已经是 ON，编译器会通过 -march=native（或 MSVC/探测逻辑）自动打开本机支持的 SSE/AVX/FMA 等特性，不需要再逐个选项手动勾。
+2. 典型场景（非交叉/非可复现）：GGML_NATIVE_DEFAULT=ON -> GGML_NATIVE=ON -> 走 -march=native，INS_ENB=OFF 只是让手动的 GGML_SSE42/AVX/… 选项默认不再重复勾；指令仍然会用，只是由编译器根据本机能力决定。如果你关掉 GGML_NATIVE（为了做通用/可分发二进制），这时需要手动挑指令集，所以让 INS_ENB=ON，默认把常见的 SSE4.2/AVX/AVX2/BMI2/FMA/F16C 选项打开，方便“较新机型通用”的构建；需要更保守时可手动关闭。若是交叉编译或可复现构建（GGML_NATIVE_DEFAULT=OFF），两者条件触发，INS_ENB 也变 OFF，避免误用目标机不一定有的指令。
+3. 这段逻辑设计动机无法理解。
+]]
 if (GGML_NATIVE OR NOT GGML_NATIVE_DEFAULT)
     set(INS_ENB OFF)
 else()
     set(INS_ENB ON)
 endif()
 
+#[[
+1. message(DEBUG …) 只有在日志级别 >= DEBUG 时才会打印；CMake 的默认级别是 NOTICE，所以这三行被静默。用 CMake-GUI 点击 Configure 时没有把日志级别调高，因此看不到输出。要看它们，可以改成 message(STATUS …)，或在配置时把 CMAKE_MESSAGE_LOG_LEVEL 设为 DEBUG（在 GUI 里添加该缓存变量，或命令行 -DCMAKE_MESSAGE_LOG_LEVEL=DEBUG/cmake --log-level=DEBUG）。
+]]
 message(DEBUG "GGML_NATIVE         : ${GGML_NATIVE}")
 message(DEBUG "GGML_NATIVE_DEFAULT : ${GGML_NATIVE_DEFAULT}")
 message(DEBUG "INS_ENB             : ${INS_ENB}")
