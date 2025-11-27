@@ -333,6 +333,9 @@ option(GGML_OPENCL_USE_ADRENO_KERNELS       "ggml: use optimized kernels for Adr
 set   (GGML_OPENCL_TARGET_VERSION "300" CACHE STRING
                                             "gmml: OpenCL API version to target")
 
+#[[
+1. Hexagon 指的是 Qualcomm SoC 里的 DSP 架构/核（Qualcomm Hexagon），常用于安卓手机/平板等移动设备的信号处理和 NN 加速。这个开关是为了给 Hexagon DSP 做专用 backend（需配合 Qualcomm QNN/SDK 等）。因此它面向手机/平板等含 Qualcomm SoC 的设备，不是面向常规 PC/Server CPU。
+]]
 option(GGML_HEXAGON                         "ggml: enable Hexagon backend"                    OFF)
 
 # toolchain for vulkan-shaders-gen
@@ -424,6 +427,7 @@ set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
   3.1 TARGETS ggml / ggml-base：指的是前面用 add_library(ggml ...) / add_library(ggml-base ...) 定义的库目标。
   3.2 LIBRARY：表示安装“库文件”（在 Linux 是 .so，macOS 是 .dylib，Windows 通常参与到 .dll/.lib 的安装策略里）。
   3.3 PUBLIC_HEADER：会安装这个目标在 PUBLIC_HEADER 属性中列出的头文件，常用来对外暴露 API。
+4. 顶层的 install(TARGETS ggml …)/install(TARGETS ggml-base …) 是给在子目录里定义的库装的。CMakeLists.txt 里有 add_subdirectory(src)，而 src/CMakeLists.txt 里确实有 add_library(ggml-base …)、add_library(ggml …)（以及 add_library(ggml::ggml ALIAS ggml)）。CMake 处理完 add_subdirectory(src) 后，这些目标会向上可见，所以在顶层安装它们没有问题。只要保持 add_subdirectory(src) 出现在安装命令之前即可当前顺序已经满足。
 ]]
 install(TARGETS ggml LIBRARY PUBLIC_HEADER)
 install(TARGETS ggml-base LIBRARY)
