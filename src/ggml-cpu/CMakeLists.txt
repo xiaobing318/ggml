@@ -1,3 +1,8 @@
+#[[
+1. 在当前 CMakeLists.txt 文件中定义实现一个名为 ggml_add_cpu_backend_features 的函数，该函数将会作为该文件内部使用的一个函数。
+2. feature detection code 被编译成一个单独的目标，因此可以在不指定架构标志的情况下进行构建。由于同一个构建中可能包含多个 CPU 后端变体，因此无法使用 `set_source_files_properties()` 来设置架构标志。
+3. TODO:
+]]
 function(ggml_add_cpu_backend_features cpu_name arch)
     # The feature detection code is compiled as a separate target so that
     # it can be built without the architecture flags

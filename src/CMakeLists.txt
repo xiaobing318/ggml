@@ -1,5 +1,5 @@
 #[[
-1. include 这个 CMake 命令在当前目录/作用域中包含名为 CheckCXXCompilerFlag.cmake 模块文件，然后再执行这个模块文件，即总体分为包含、执行这两个执行步骤。该模块文件中定义的一些变量/宏在当前作用域中是可用的。这种模块化的组织方式是为了功能划分、调试、使用等更加方便。
+1. include 这个 CMake 命令在当前目录/作用域中包含名为 CheckCXXCompilerFlag.cmake 模块文件，然后再执行这个模块文件，即总体分为包含、执行这两个执行步骤。该模块文件中定义的一些变量/宏/函数在当前作用域中是可用的。这种模块化的组织方式是为了功能划分、调试、使用等更加方便。
 2. CheckCXXCompilerFlag.cmake 模块通过编译一个 C++ 编译单元从而查看当前编译系统是否支持某些编译参数。
 3. 自定义 CMake 模块文件解释：
   3.1 ggml_get_flags(CCID, CCVER)：根据当前编译器类型和版本（传入的 CCID、CCVER，通常是 CMAKE_CXX_COMPILER_ID/CMAKE_CXX_COMPILER_VERSION），生成一组额外的警告/诊断编译选项，分别写回父作用域的 GF_C_FLAGS 和 GF_CXX_FLAGS 供后续追加到编译选项里，用于增强警告覆盖但兼顾版本兼容性。
@@ -344,9 +344,12 @@ endif()
 1. ggml_add_backend_library 是封装的后端库构建/安装函数：
   1.1 若开启 GGML_BACKEND_DL：按插件模式构建（add_library(... MODULE ...)），输出目录指向运行目录，定义 GGML_BACKEND_DL 宏，并让 ggml 依赖该插件；安装到指定后端目录或可执行目录。
   1.2 若没开 GGML_BACKEND_DL：将后端直接编译为普通库并链接到主库 ggml，同时安装。
-2. 无论哪种模式，后端都私有链接 ggml-base，包含上层目录头文件；在构建共享库时添加导出相关宏；统一设置版本/SOVERSION；并将后端名记录到 GGML_AVAILABLE_BACKENDS 供生成 package 配置使用。
+2. ggml_add_backend_library 这个函数没有在当前文件中被使用，而是在每个后端中被使用了，这样做的好处就是避免在每一个后端中都包含一份相同的逻辑代码。
 ]]
 function(ggml_add_backend_library backend)
+    #[[
+    1. 这个函数的作用是统一规范“后端库（backend）”是怎么被构建、怎么安装、怎么和核心 ggml 关联起来，并顺便把所有已注册的后端名字收集到一个列表里。更细一点说：它根据 GGML_BACKEND_DL 的开关，决定把后端编译成“可动态加载的模块插件”（add_library(MODULE …)，运行时由 ggml 动态加载）还是正常链接到 ggml 里的普通库；
+    ]]
     if (GGML_BACKEND_DL)
         add_library(${backend} MODULE ${ARGN})
         # write the shared library to the output directory
@@ -364,6 +367,9 @@ function(ggml_add_backend_library backend)
         install(TARGETS ${backend} LIBRARY)
     endif()
 
+    #[[
+    1. 无论哪种方式，都会让该后端链接 ggml-base、包含上层目录头文件、在构建为共享库时定义统一的宏（GGML_BACKEND_BUILD/GGML_BACKEND_SHARED），并为库设置版本号（VERSION/SOVERSION）；最后，还把当前这个 backend 名字添加到内部缓存变量 GGML_AVAILABLE_BACKENDS 中，方便后面打包或生成配置文件时知道“当前构建里有哪些后端”。
+    ]]
     target_link_libraries(${backend} PRIVATE ggml-base)
     target_include_directories(${backend} PRIVATE ..)
 
@@ -391,9 +397,7 @@ function(ggml_add_backend_library backend)
 endfunction()
 
 #[[
-1. 根据开关决定是否包含某个后端：
-   - 如果 GGML_<后端名> 为 ON，则进入对应子目录构建后端库。
-   - 非动态后端模式下再给主库 ggml 添加 GGML_USE_<后端名> 宏，用于编译期启用该后端。
+1. ggml_add_backend 是当前文件中定义和实现的一个函数，有一个用来表示后端名称的参数，首先将拼接的字符串使用字符串操作转化成大写的字符串，这么做是为了检查指定的 CMake 变量是否存在且有效。如果指定的 CMake 变量（后端）存在且有效，那么需要跳转到对应的子文件夹中递归执行配置。非动态后端模式下再给主库 ggml 添加 GGML_USE_<后端名> 宏，用于编译期启用该后端。
 2. 通过大小写转换生成统一的变量名/目标名，兼容例如 CPU/CUDA/METAL 等不同后端。
 ]]
 function(ggml_add_backend backend)
