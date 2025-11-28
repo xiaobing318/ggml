@@ -783,11 +783,29 @@ bool gpt2_eval(
     return true;
 }
 
+/*
+1. 目前是在 visual studio 2019 中编写的注释，在 visual studio 对 EditorConfig 支持不像 visual studio code 对 EditorConfig 支持那么好，所以有些配置项可能不起作用。因此，建议使用 visual studio code 来编辑和查看这些注释，以确保所有配置项都能正确应用。
+*/
 int main(int argc, char ** argv) {
+    /*
+    1. ggml_time_init 函数是 ggml-base 目标提供给外部使用的一个时间初始化函数。它的作用是初始化时间相关的设置，以便后续的时间测量和计算能够准确进行。
+    2. ggml_time_init 函数功能：
+      2.1 Windows 下：读取高精度计时器频率与当前计数（QueryPerformanceFrequency/Counter），保存在静态 timer_freq/timer_start，供后续 ggml_time_ms/ggml_time_us 计算相对时间；通过减去程序启动时刻，降低频率与运行时间乘积溢出的风险。
+      2.2 非 Windows 下：空实现，因为 ggml_time_ms/ggml_time_us 直接调用 clock_gettime(CLOCK_MONOTONIC)，无需预先初始化。
+    3. 设计意图：在程序开始时调用一次，确保跨平台的高精度、单调计时接口可用，并尽量避免大 uptime 时的溢出。
+    */
     ggml_time_init();
 
+    /*
+    1. t_main_start_us 变量用于记录主函数开始执行时的时间戳，单位为微秒（microseconds）。它通过调用 ggml_time_us() 函数获取当前的时间戳。
+    */
     const int64_t t_main_start_us = ggml_time_us();
 
+    /*
+    1. 创建一个 gpt_params 结构体实例 params，用于存储 GPT-2 模型的参数配置。
+    2. 设置模型文件路径为 "models/gpt-2-117M/ggml-model.bin"，该模型文件路径作为一个初始值，后续可能会被命令行参数覆盖。
+    3. 调用 gpt_params_parse 函数解析命令行参数 argc 和 argv，将解析结果存储到 params 结构体中，该函数支持很多的命令行参数，可以查看具体的实现分析支持哪些参数。如果解析失败，程序将返回 1 并退出。
+    */
     gpt_params params;
     params.model = "models/gpt-2-117M/ggml-model.bin";
 
@@ -795,17 +813,30 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
+    /*
+    1. 检查从命令行读取的随机种子参数 params.seed 是否小于 0。如果随机种子参数小于 0，则使用当前时间作为随机种子。
+    2. 输出当前使用的随机种子值，方便调试和记录实验条件。
+    */
     if (params.seed < 0) {
         params.seed = time(NULL);
     }
 
     printf("%s: seed = %d\n", __func__, params.seed);
 
+    /*
+    1. 创建一个 Mersenne Twister 随机数生成器 rng，并使用参数 params.seed 作为种子进行初始化。
+    2. 检查参数 params.prompt 是否为空字符串。如果为空，则调用 gpt_random_prompt 函数生成一个随机的提示语，并将其赋值给 params.prompt。
+    */
     std::mt19937 rng(params.seed);
     if (params.prompt.empty()) {
         params.prompt = gpt_random_prompt(rng);
     }
 
+    /*
+    1. 创建变量 t_load_us，用于记录模型加载所花费的时间，单位为微秒（microseconds）。初始值为 0。
+    2. 创建 gpt_vocab 结构体实例 vocab，用于存储 GPT-2 模型的词汇表。
+    3. 创建 gpt2_model 结构体实例 model，用于存储 GPT-2 模型的参数和权重。
+    */
     int64_t t_load_us = 0;
 
     gpt_vocab vocab;
@@ -813,6 +844,13 @@ int main(int argc, char ** argv) {
 
     // load the model
     {
+        /*
+        1. 记录模型加载开始的时间戳，单位为微秒（microseconds）。调用 ggml_time_us() 函数获取当前时间戳，并将其存储在 t_start_us 变量中。
+        2. 调用 gpt2_model_load 函数加载 GPT-2 模型。该函数接受模型文件路径 params.model、模型实例 model、词汇表实例 vocab、上下文长度参数 params.n_ctx 和 GPU 层数参数 params.n_gpu_layers 作为输入。
+          2.1 如果模型加载失败（即 gpt2_model_load 函数返回 false），则输出错误信息并返回 1，结束程序执行。
+          2.2 如果模型加载成功，计算模型加载所花费的时间，并将其存储在 t_load_us 变量中。计算方法是调用 ggml_time_us() 函数获取当前时间戳，并减去 t_start_us。
+        3. 调用 test_gpt_tokenizer 函数测试 GPT-2 词汇表的分词功能，使用词汇表实例 vocab 和测试字符串 params.token_test 作为输入。
+        */
         const int64_t t_start_us = ggml_time_us();
 
         if (!gpt2_model_load(params.model, model, vocab, params.n_ctx, params.n_gpu_layers)) {
@@ -825,6 +863,17 @@ int main(int argc, char ** argv) {
         test_gpt_tokenizer(vocab, params.token_test);
     }
 
+    /*
+    1. 创建 ggml_gallocr_t 类型的变量 allocr，并初始化为 NULL。该变量将用于分配计算缓冲区。
+    2. 分配计算缓冲区：
+      2.1 创建一个图形分配器 allocr，使用模型后端的默认缓冲区类型进行初始化。
+      2.2 计算最坏情况下的内存使用情况，以估计所需的计算缓冲区大小。具体步骤如下：
+        2.2.1 计算令牌数量 n_tokens，取模型上下文长度 model.hparams.n_ctx 和参数 params.n_batch 的最小值。
+        2.2.2 计算过去的令牌数量 n_past，等于模型上下文长度减去当前令牌数量 n_tokens。
+        2.2.3 调用 gpt2_graph 函数构建计算图 gf，传入模型实例 model、过去的令牌数量 n_past 和当前令牌数量 n_tokens 作为参数。
+      2.3 可选地，为最坏情况预分配计算缓冲区：
+        2.3.1 调用 ggml_gallocr_reserve 函数，为图形分配器 allocr 预留计算图 gf 所需的内存。
+    */
     ggml_gallocr_t allocr = NULL;
     // allocate the compute buffer
     {
@@ -850,6 +899,12 @@ int main(int argc, char ** argv) {
     std::vector<float> logits;
 
     // tokenize the prompt
+    /*
+    IMPORTANT:tokenization
+    1. 使用 gpt_tokenize 函数对输入提示语 params.prompt 进行分词，生成对应的令牌 ID 列表 embd_inp。该函数接受词汇表实例 vocab 和提示语字符串 params.prompt 作为输入。
+    2. 更新参数 params.n_predict，确保预测的令牌数量不会超过模型的上下文长度限制。具体做法是将 params.n_predict 设置为其当前值和模型上下文长度减去输入令牌数量 embd_inp.size() 之间的较小值。
+    3. 输出提示语信息，包括提示语内容、提示语中的令牌数量以及前 8 个令牌的 ID，方便调试和记录实验条件。
+    */
     std::vector<gpt_vocab::id> embd_inp = ::gpt_tokenize(vocab, params.prompt);
 
     params.n_predict = std::min(params.n_predict, model.hparams.n_ctx - (int) embd_inp.size());
