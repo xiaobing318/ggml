@@ -1,7 +1,8 @@
 #[[
-1. 在当前 CMakeLists.txt 文件中定义实现一个名为 ggml_add_cpu_backend_features 的函数，该函数将会作为该文件内部使用的一个函数。
-2. feature detection code 被编译成一个单独的目标，因此可以在不指定架构标志的情况下进行构建。由于同一个构建中可能包含多个 CPU 后端变体，因此无法使用 `set_source_files_properties()` 来设置架构标志。
-3. TODO:
+1. 在当前 CMakeLists.txt 文件中定义和实现一个名为 ggml_add_cpu_backend_features 的函数，该函数将会作为该文件内部使用的一个函数。
+2. 注释翻译：feature detection code 被编译成一个单独的目标，因此可以在不指定架构标志的情况下进行构建。由于同一个构建中可能包含多个 CPU 后端变体，因此无法使用 `set_source_files_properties()` 来设置架构标志。
+  2.1 feature detection code:检测当前 CPU 是否支持 AVX/AVX2/AVX512 等等扩展指令，该代码将会被单独编译成一个独立的 CMake 目标。这个探测代码在编译时完全不加任何特殊架构编译选项（architecture flags），例如不加 -mavx2、-mavx512f、/arch:AVX2 等，只用“最保守、最通用”的指令集编译。因为如果在编译的时候添加了某些特殊架构编译选项，可能会导致编译后的代码在某些 CPU 上运行不起来。
+  2.2 要完成“探测 CPU 是否支持 AVX2”，这段探测代码本身 绝对不能使用 AVX2 指令。否则你连“问一嘴你支不支持 AVX2”都来不及，程序已经因为非法指令挂了。
 ]]
 function(ggml_add_cpu_backend_features cpu_name arch)
     # The feature detection code is compiled as a separate target so that
@@ -17,6 +18,60 @@ function(ggml_add_cpu_backend_features cpu_name arch)
     target_link_libraries(${cpu_name} PRIVATE ${GGML_CPU_FEATS_NAME})
 endfunction()
 
+#[[
+1. 目标命名
+  1.1 CPU 后端：ggml_add_cpu_backend_variant_impl 生成 ggml-cpu 或 ggml-cpu-<tag>（x64、sse42、sandybridge、haswell、skylakex、icelake、alderlake、sapphirerapids；armv8.0_1 等 Linux/Android/Apple 变体；power0/power7_1/.../power11；z15、z16），并为每个变体附带对象库 <name>-feats。
+  1.2 其它后端库：ggml-blas、ggml-cann、ggml-cuda、ggml-hip、ggml-metal、ggml-musa、ggml-rpc、ggml-sycl、ggml-vulkan、ggml-webgpu、ggml-zdnn、ggml-opencl、ggml-hexagon。
+  1.3 Hexagon 辅助目标：对象库 htp_iface、外部构建的 ggml-htp-v73/v75/v79/v81，以及打包 Metal/Vulkan/WebGPU 的自定义目标 ggml-metal-lib、generate_shaders、vulkan-shaders-gen 等。
+2. 源文件归属
+  2.1 ggml-base：ggml.c, ggml.cpp, ggml-alloc.c, ggml-backend.cpp, ggml-opt.cpp, ggml-threading.*, ggml-quants.*, gguf.cpp 及公开头文件。
+  2.2 ggml：仅 src/ggml-backend-reg.cpp，链接 ggml-base。
+  2.3 CPU 后端（src/ggml-cpu/CMakeLists.txt）：固定加入 ggml-cpu/ggml-cpu.c|cpp, repack.*, hbm.*, quants.*, traits.*, amx/*.cpp|h, ggml-cpu-impl.h, common.h, binary-ops.*, unary-ops.*, simd-mappings.h, vec.*, ops.*；可选附加
+    2.3.1 LLAMAFILE：llamafile/sgemm.cpp|h；
+    2.3.2 ARM：arch/arm/quants.c, arch/arm/repack.cpp;
+    2.3.3 x86：arch/x86/quants.c, arch/x86/repack.cpp;
+    2.3.4 PowerPC：arch/powerpc/quants.c; loongarch：arch/loongarch/quants.c;
+    2.3.5 riscv64：arch/riscv/quants.c, arch/riscv/repack.cpp，若 GGML_CPU_RISCV64_SPACEMIT 再加 spacemit/*;
+    2.3.6 s390x：arch/s390/quants.c; wasm：arch/wasm/quants.c;
+    2.3.7 KleidiAI：ggml-cpu/kleidiai/*.cpp|h 加上大量 kai/ukernels 源（按 dotprod/i8mm/SME 检测再拼接）。
+  2.4 ggml-blas：ggml-blas.cpp。
+  2.5 ggml-cann：子目录内所有 *.cpp（file(GLOB)）。
+  2.6 ggml-cuda：全部 *.cuh、../../include/ggml-cuda.h、*.cu 与 template-instances/fattn-*, mmq*, mmf*，以及选择性的 fattn-vec* 变体。
+  2.7 ggml-hip：复用 ../ggml-cuda/*.cuh|*.cu 与相同模板实例；源语言视是否 hipcc 设为 HIP 或 CXX。
+  2.8 ggml-metal：ggml-metal.cpp, ggml-metal-device.{m,cpp}, ggml-metal-common.cpp, ggml-metal-context.m, ggml-metal-ops.cpp，可附加生成的汇编或 default.metallib。
+  2.9 ggml-musa：复用 ../ggml-cuda/*.cuh|*.cu + mudnn.cuh，可选 ../ggml-musa/*.cu（MUDNN_COPY）。
+  2.10 ggml-rpc：ggml-rpc.cpp。
+  2.11 ggml-sycl：ggml-sycl.cpp, ../../include/ggml-sycl.h, 以及本目录所有 *.hpp|*.cpp。
+  2.12 ggml-vulkan：ggml-vulkan.cpp, ../../include/ggml-vulkan.h，生成的 ggml-vulkan-shaders.hpp 与每个 .comp 对应的生成 .cpp。
+  2.13 ggml-webgpu：ggml-webgpu.cpp, ../../include/ggml-webgpu.h, 生成的 generated/ggml-wgsl-shaders.hpp。
+  2.14 ggml-zdnn：本目录所有 *.c|*.cpp|*.h|*.hpp。
+  2.15 ggml-opencl：ggml-opencl.cpp, ../../include/ggml-opencl.h，以及按 GGML_OPENCL_KERNELS 列表嵌入或复制的 .cl 头文件。
+  2.16 ggml-hexagon：ggml-hexagon.cpp, htp-utils.c|h, ../../include/ggml-hexagon.h；htp 子目录库含 main.c, htp_iface_skel.c, worker-pool.c, 各类 hvx/ops 源等。
+3. 配置与自动探测
+  3.1 ggml_add_backend_library：根据 GGML_BACKEND_DL 选择 MODULE 插件或普通库；所有后端链接 ggml-base、包含 src 上级头，若构建共享库则定义 GGML_BACKEND_BUILD/GGML_BACKEND_SHARED，并统一设置 VERSION/SOVERSION 与聚合列表 GGML_AVAILABLE_BACKENDS。
+  3.2 核心库：ggml-base/ggml 要求 C11/C++17，ggml-base 私有包含 src，动态后端模式下公开 GGML_BACKEND_DL，按平台添加 _GNU_SOURCE/_DARWIN_C_SOURCE/_XOPEN_SOURCE 等；ggml 可带 GGML_BACKEND_DIR 宏，Linux 链接 dl。
+  3.3 CPU 后端（src/ggml-cpu/CMakeLists.txt）：统一要求 C11/C++17、包含 . 与 ggml-cpu；可开启 Accelerate(GGML_USE_ACCELERATE 等)与 OpenMP(GGML_USE_OPENMP + 链接 OpenMP)；GGML_LLAMAFILE/CPU_HBM/CPU_REPACK/CPU_KLEIDIAI 分别加对应宏和依赖（memkind、KleidiAI 源及特定 include/编译选项）；Emscripten 强制 -msimd128，IntelLLVM 关闭 -fassociative-math。
+  3.4 ARM：拒绝 MSVC 非 Clang；可探测 -mfp16-format=ieee；GGML_NATIVE 通过编译器输出来拼 -mcpu/-march 并逐项探测 dotprod/i8mm/sve/sme；非 native 时用 GGML_CPU_ARM_ARCH 或 GGML_CPU_ALL_VARIANTS 自动拼 -march=armv8.x + +dotprod/+fp16/+sve/+i8mm/+sve2/+nosve/+sme，并对变体定义 GGML_USE_*；可生成 <name>-feats 对象库并链接回主库。
+  3.5 x86：MSVC 分支用 /arch:* 和显式 GGML_AVX512/AVX2/AVX/SSE42 等宏，AMX/AVX512 扩展手动定义，BMI2/AVX-VNNI 手动补宏；GGML_NATIVE 时可调用 FindSIMD；GCC/Clang 分支用 -march=native 或逐项 -msse4.2/-mf16c/-mfma/-mbmi2/-mavx/-mavx2/-mavxvnni/-mavx512*/-mamx-*，对应宏 GGML_*；若 GGML_BACKEND_DL 且非 GGML_NATIVE，额外生成 <name>-feats 对象库。
+  3.6 PowerPC：可选 GGML_NATIVE 基于 /proc/cpuinfo 或 GGML_CPU_ALL_VARIANTS（POWER7-11/VSX 定义）或 GGML_CPU_POWERPC_CPUTYPE；变体模式生成 features 对象库。
+  3.7 loongarch64：固定 -march=loongarch64，可加 -mlasx/-mlsx。
+  3.8 riscv64：拼 -march=rv64gc[_zfh][_xtheadvector|_v[_zvfh]/][_zicbop] -mabi=lp64d；Spacemit 打开 GGML_USE_CPU_RISCV64_SPACEMIT 并加入 ime* 源。
+  3.9 s390x：依据 /proc/cpuinfo 选 -march=z15/z16/z17 或 -march=native，跨平台变体范围 z15-z17；可选 VXE/VXE2/NNPA 宏并生成 features 对象库。
+  3.10 wasm：仅加 wasm quants；未知架构则定义 -DGGML_CPU_GENERIC。最终把 ARCH_FLAGS 传给 target_compile_options，ARCH_DEFINITIONS 传给 target_compile_definitions。
+  3.11 BLAS：探测 BLAS，依供应商添加 GGML_BLAS_USE_ACCELERATE/MKL/BLIS 等宏，应用 BLAS_LINKER_FLAGS、包含/库目录。
+  3.12 CANN：校验平台与 SOC，定义 ASCEND_*（由 SOC_TYPE），可选 USE_ACL_GRAPH；链接 ascendcl/nnopbase/opapi/acl_op_compiler。
+  3.13 CUDA：设置 CMAKE_CUDA_ARCHITECTURES（native 或多级虚拟/真实 SM），宏 GGML_CUDA_PEER_MAX_BATCH_SIZE，可选 GGML_CUDA_USE_GRAPHS/ FORCE_MMQ/ FORCE_CUBLAS/ NO_VMM/ NO_FA/ NO_PEER_COPY，GGML_CUDA_DEBUG 加 -lineinfo，GGML_CUDA_COMPRESSION_MODE 传给 -compress-mode，链接 cudart/cublas(+Lt)/cuda_driver。
+  3.14 HIP：宏 GGML_USE_HIP，并（非动态后端时）对 ggml 补 GGML_USE_CUDA；传递 CUDA 相关宏/开关（FORCE_MMQ/CUBLAS→HIP等）、GGML_HIP_GRAPHS、GGML_HIP_NO_VMM、GGML_HIP_ROCWMMA_FATTN、GGML_HIP_NO_MMQ_MFMA、GGML_HIP_EXPORT_METRICS、GGML_CUDA_NO_FA；链接 hip::host/rocblas/hipblas。
+  3.15 Metal：可选 GGML_METAL_NDEBUG、GGML_METAL_EMBED_LIBRARY 生成内嵌汇编或默认 default.metallib，支持 GGML_METAL_SHADER_DEBUG/GGML_METAL_MACOSX_VERSION_MIN/GGML_METAL_STD；链接 Foundation/Metal/MetalKit。
+  3.16 MUSA：宏 GGML_USE_MUSA、GGML_CUDA_PEER_MAX_BATCH_SIZE，可选 GGML_MUSA_GRAPHS、GGML_CUDA_FORCE_MMQ/CUBLAS/NO_VMM/NO_FA/NO_PEER_COPY、GGML_MUSA_MUDNN_COPY；每源附 --cuda-gpu-arch=mp_<arch> 等编译标志；链接 musart/mublas/(mudnn)。
+  3.17 RPC：仅 Windows 额外链接 ws2_32。
+  3.18 SYCL：编译/链接 -fsycl，宏 GGML_SYCL_DNNL、GGML_SYCL_F16、GGML_SYCL_GRAPH、GGML_SYCL_WARP_SIZE（16/32 取决于目标）、GGML_SYCL_NVIDIA/AMD/GENERIC；可用 oneDNN 或自动 Fetch oneMath（配置 GPU backend/arch），NVIDIA/AMD 还加 -fsycl-targets 与 -Xsycl-target-backend --offload-arch=…。
+  3.19 Vulkan：根据 glslc 测试自动定义 GGML_VULKAN_COOPMAT_GLSLC_SUPPORT 等扩展宏，支持 GGML_VULKAN_CHECK_RESULTS/DEBUG/MEMORY_DEBUG/SHADER_DEBUG_INFO/VALIDATE/RUN_TESTS；外部项目生成并安装着色器代码。
+  3.20 WebGPU：可选 GGML_WEBGPU_DEBUG/CPU_PROFILE/GPU_PROFILE，依平台链接 Dawn 或 emdawn 端口；Python 嵌入 WGSL。
+  3.21 zDNN：定义 GGML_USE_ZDNN 并链接探测到的 zdnn 库/包含。
+  3.22 OpenCL：宏 GGML_OPENCL_SOA_Q、GGML_OPENCL_TARGET_VERSION，可选 GGML_OPENCL_PROFILING/USE_ADRENO_KERNELS/EMBED_KERNELS，Python 生成内嵌 kernel 头。
+  3.23 Hexagon：htp_iface 按 GGML_HEXAGON_HTP_DEBUG 设 HTP_DEBUG/NDEBUG，链接 cdsprpc/rpcmem/-ldl 或 -llog 等；外部项目为 v73/v75/v79/v81 构建 DSP skel，ggml-hexagon 链接 htp_iface。
+]]
 function(ggml_add_cpu_backend_variant_impl tag_name)
     if (tag_name)
         set(GGML_CPU_NAME ggml-cpu-${tag_name})
