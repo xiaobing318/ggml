@@ -765,10 +765,10 @@ bool gpt2_eval(
     // run the computation
     ggml_backend_graph_compute(model.backend, gf);
 
-    //if (n_past%100 == 0) {
-    //    ggml_graph_print   (&gf);
-    //    ggml_graph_dump_dot(&gf, NULL, "gpt-2.dot");
-    //}
+    if (n_past%100 == 0) {
+        ggml_graph_print   (gf);
+        ggml_graph_dump_dot(gf, NULL, "gpt-2.dot");
+    }
 
     // get the graph outputs
     struct ggml_tensor * logits = ggml_graph_get_tensor(gf, "logits");
@@ -784,11 +784,12 @@ bool gpt2_eval(
 }
 
 /*
-1. 目前是在 visual studio 2019 中编写的注释，在 visual studio 对 EditorConfig 支持不像 visual studio code 对 EditorConfig 支持那么好，所以有些配置项可能不起作用。因此，建议使用 visual studio code 来编辑和查看这些注释，以确保所有配置项都能正确应用。
+1. 目前是在 visual studio code 中编写的注释，在 visual studio 对 EditorConfig 支持不像 visual studio code 对 EditorConfig 支持那么好，所以有些配置项可能不起作用。因此，建议使用 visual studio code 来编辑和查看这些注释，以确保所有配置项都能正确应用。
+2. 该项目中的文件使用 UTF-8 编码而不是 UTF-8 with BOM 编码。这是因为 UTF-8 with BOM 编码在某些编译器中可能会引起问题，尤其是在处理源代码文件时，但是在 MSVC 编译器工具链中则不会出现问题。因此，为了确保代码在大多数编译器工具链中的兼容性和可移植性，建议使用纯粹的 UTF-8 编码。对于 MSVC 编译器工具链，可以通过添加编译器选项 /utf-8 来启用对 UTF-8 编码的支持。
 */
 int main(int argc, char ** argv) {
     /*
-    1. ggml_time_init 函数是 ggml-base 目标提供给外部使用的一个时间初始化函数。它的作用是初始化时间相关的设置，以便后续的时间测量和计算能够准确进行。
+    1. ggml_time_init 函数是 ggml-base 目标提供给外部使用的一个时间初始化函数。该函数的作用是初始化时间相关的设置，以便后续的时间测量和计算能够准确进行。
     2. ggml_time_init 函数功能：
       2.1 Windows 下：读取高精度计时器频率与当前计数（QueryPerformanceFrequency/Counter），保存在静态 timer_freq/timer_start，供后续 ggml_time_ms/ggml_time_us 计算相对时间；通过减去程序启动时刻，降低频率与运行时间乘积溢出的风险。
       2.2 非 Windows 下：空实现，因为 ggml_time_ms/ggml_time_us 直接调用 clock_gettime(CLOCK_MONOTONIC)，无需预先初始化。
@@ -814,7 +815,7 @@ int main(int argc, char ** argv) {
     }
 
     /*
-    1. 检查从命令行读取的随机种子参数 params.seed 是否小于 0。如果随机种子参数小于 0，则使用当前时间作为随机种子。
+    1. 检查从命令行读取的随机种子参数 params.seed 是否小于 0。如果随机种子参数小于 0，则使用当前时间作为随机种子。该参数用来初始化生成器，后面不仅用于随机生成默认提示词，也用于采样过程即用于采样下一个 token，以确保生成的文本具有一定的随机性和多样性。
     2. 输出当前使用的随机种子值，方便调试和记录实验条件。
     */
     if (params.seed < 0) {
@@ -824,8 +825,10 @@ int main(int argc, char ** argv) {
     printf("%s: seed = %d\n", __func__, params.seed);
 
     /*
-    1. 创建一个 Mersenne Twister 随机数生成器 rng，并使用参数 params.seed 作为种子进行初始化。
-    2. 检查参数 params.prompt 是否为空字符串。如果为空，则调用 gpt_random_prompt 函数生成一个随机的提示语，并将其赋值给 params.prompt。
+    1. 在计算机科学中，伪随机数并非真正的随机，而是基于一个初始值（种子）通过特定算法计算出的一系列数字序列。这里创建一个 Mersenne Twister 随机数生成器 rng，并使用参数 params.seed 作为种子进行初始化。
+    2. 检查参数 params.prompt 是否为空字符串。如果为空，则调用 gpt_random_prompt 函数生成一个随机的提示语，并将其赋值给 params.prompt。随机数生成器对随机提示语的生成、采样过程两方面产生影响。
+      2.1 随机模式：通常作为默认设置。程序会读取当前系统时间（time(NULL)）作为种子。因为时间在不断流逝，每次运行程序时种子都不同，生成的文本也不同。
+      2.2 复现模式：如果你在命令行显式传入一个整数（例如 42），程序将始终使用这个固定的种子。这对于调试非常重要，因为它能让你完美复现某一次的模型输出结果。
     */
     std::mt19937 rng(params.seed);
     if (params.prompt.empty()) {
@@ -900,9 +903,8 @@ int main(int argc, char ** argv) {
 
     // tokenize the prompt
     /*
-    IMPORTANT:tokenization
     1. 使用 gpt_tokenize 函数对输入提示语 params.prompt 进行分词，生成对应的令牌 ID 列表 embd_inp。该函数接受词汇表实例 vocab 和提示语字符串 params.prompt 作为输入。
-    2. 更新参数 params.n_predict，确保预测的令牌数量不会超过模型的上下文长度限制。具体做法是将 params.n_predict 设置为其当前值和模型上下文长度减去输入令牌数量 embd_inp.size() 之间的较小值。
+    2. 更新参数 params.n_predict，确保预测的令牌数量不会超过模型的上下文长度限制。具体做法是将 params.n_predict 设置为其当前值和模型上下文长度减去输入令牌数量 embd_inp.size() 之间的较小值，如果传入的值过大，则进行调整。
     3. 输出提示语信息，包括提示语内容、提示语中的令牌数量以及前 8 个令牌的 ID，方便调试和记录实验条件。
     */
     std::vector<gpt_vocab::id> embd_inp = ::gpt_tokenize(vocab, params.prompt);
@@ -920,8 +922,14 @@ int main(int argc, char ** argv) {
     // this reduces the memory usage during inference, at the cost of a bit of speed at the beginning
     std::vector<gpt_vocab::id> embd;
 
+    /*
+    1. 使用一个 for 循环来生成和输出预测的 token,直到达到指定的预测数量 params.n_predict，或者遇到结束标记（end-of-text token），之前已经将预测数量的边界情况处理好了。
+    */
     for (size_t i = embd.size(); i < embd_inp.size() + params.n_predict; i++) {
         // predict
+        /*
+        1. 如果 embd 向量中的 token 数量大于 0，表示有新的 token 需要进行预测，使用 gpt2_eval 函数对当前的模型进行评估和预测。
+        */
         if (embd.size() > 0) {
             const int64_t t_start_us = ggml_time_us();
 
@@ -936,6 +944,16 @@ int main(int argc, char ** argv) {
         n_past += embd.size();
         embd.clear();
 
+        /*
+        1. 检查当前是否已经处理完输入提示语 embd_inp 中的所有 token。
+          1.1 如果已经处理完（即 i 大于等于 embd_inp.size()），则进行下一个 token 的采样：
+            1.1.1 从参数 params 中获取 top_k、top_p 和温度 temp，用于控制采样过程。
+            1.1.2 获取模型的词汇表大小 n_vocab。
+            1.1.3 使用 gpt_sample_top_k_top_p 函数根据当前的 logits 和采样参数，从词汇表中采样下一个 token 的 ID，并将其存储在变量 id 中。
+            1.1.4 记录采样所花费的时间，并累加到 t_sample_us 变量中。
+            1.1.5 将采样得到的 token ID 添加到 embd 向量中，准备进行下一轮预测。
+          1.2 如果还没有处理完输入提示语中的 token，则继续将提示语中的 token 添加到 embd 向量中，直到达到批处理大小 params.n_batch 为止。
+        */
         if (i >= embd_inp.size()) {
             // sample next token
             const int   top_k = params.top_k;
