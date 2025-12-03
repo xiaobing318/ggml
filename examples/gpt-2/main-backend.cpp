@@ -765,10 +765,14 @@ bool gpt2_eval(
     // run the computation
     ggml_backend_graph_compute(model.backend, gf);
 
-    if (n_past%100 == 0) {
-        ggml_graph_print   (gf);
-        ggml_graph_dump_dot(gf, NULL, "gpt-2.dot");
-    }
+    /*
+    1. 作用：用来在生成文本的初始阶段（即 n_past 为 0 时）打印计算图的结构信息，并将其导出为 DOT 格式的文件，便于后续的可视化分析和调试。
+    2. 暂时注释掉这部分代码。
+    */
+    //if (n_past == 0) {
+    //    ggml_graph_print   (gf);
+    //    ggml_graph_dump_dot(gf, NULL, "gpt-2.dot");
+    //}
 
     // get the graph outputs
     struct ggml_tensor * logits = ggml_graph_get_tensor(gf, "logits");
@@ -815,7 +819,7 @@ int main(int argc, char ** argv) {
     }
 
     /*
-    1. 检查从命令行读取的随机种子参数 params.seed 是否小于 0。如果随机种子参数小于 0，则使用当前时间作为随机种子。该参数用来初始化生成器，后面不仅用于随机生成默认提示词，也用于采样过程即用于采样下一个 token，以确保生成的文本具有一定的随机性和多样性。
+    1. 检查从命令行读取的随机种子参数 params.seed 是否小于 0。如果随机种子参数小于 0，则会采取默认行为即使用当前时间作为随机种子。该参数用来初始化生成器，后面不仅用于随机生成默认提示词，也用于采样过程即用于采样下一个 token，以确保生成的文本具有一定的随机性和多样性。
     2. 输出当前使用的随机种子值，方便调试和记录实验条件。
     */
     if (params.seed < 0) {
@@ -876,6 +880,7 @@ int main(int argc, char ** argv) {
         2.2.3 调用 gpt2_graph 函数构建计算图 gf，传入模型实例 model、过去的令牌数量 n_past 和当前令牌数量 n_tokens 作为参数。
       2.3 可选地，为最坏情况预分配计算缓冲区：
         2.3.1 调用 ggml_gallocr_reserve 函数，为图形分配器 allocr 预留计算图 gf 所需的内存。
+    3. 这部分内容相对来说是比较复杂的。
     */
     ggml_gallocr_t allocr = NULL;
     // allocate the compute buffer
